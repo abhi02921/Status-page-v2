@@ -2,7 +2,7 @@ import { CreateIncident, Incident } from "@/interface/incident.interface";
 import { NewService, Service } from "@/interface/service.interface";
 
 // Base URL for your API
-const BASE_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`;
+const BASE_URL = `https://status-page-kappa.vercel.app/api`;
 
 // Function to fetch all services
 export const fetchServices = async (token: string): Promise<Service[]> => {
