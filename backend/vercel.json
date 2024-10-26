@@ -8,7 +8,6 @@
     ],
     "rewrites": [
         {
-            "src": "/(.*)",
             "dest": "/",
             "methods": [
                 "GET",
