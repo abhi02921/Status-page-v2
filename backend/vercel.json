@@ -8,15 +8,13 @@
     ],
     "rewrites": [
         {
-            "dest": "/",
-            "methods": [
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "PATCH",
-                "OPTIONS"
-            ],
+            "source": "/(.*)",
+            "destination": "src/server.ts"
+        }
+    ],
+    "headers": [
+        {
+            "source": "/(.*)",
             "headers": [
                 {
                     "key": "Access-Control-Allow-Credentials",
@@ -33,6 +31,15 @@
                 {
                     "key": "Access-Control-Allow-Headers",
                     "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+                }
+            ]
+        },
+        {
+            "source": "/vercel_app_domain_name/(.*)",
+            "headers": [
+                {
+                    "key": "Access-Control-Allow-Origin",
+                    "value": "*"
                 }
             ]
         }
