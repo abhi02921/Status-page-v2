@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useUser, useOrganizationList, useAuth } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { CreateOrganization } from '@clerk/nextjs';

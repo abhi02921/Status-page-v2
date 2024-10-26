@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { SignInButton, SignedIn, SignedOut } from '@clerk/nextjs';
+import { SignInButton, SignedOut } from '@clerk/nextjs';
 import { Button } from "@/components/ui/button";
 import Image from 'next/image';
 
@@ -26,7 +26,7 @@ export default function HomePage() {
       </p>
 
       <Image
-        src="/images/status-page-example.png"
+        src="/status_image.png"
         alt="Status Page Example"
         width={500}
         height={300}

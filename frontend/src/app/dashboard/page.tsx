@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, UserButton, useUser } from '@clerk/nextjs';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import IncidentComponent from '@/components/incident/IncidentComponent';
 import ServiceComponent from '@/components/service/service';
 import { fetchIncidents, fetchServices } from '@/utils/api'; // Import the fetchServices function
@@ -116,7 +116,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Services Section */}
-            {token && (
+            {!loadingServices && token && (
                 <ServiceComponent incidents={incidents} token={token} />
             )}
 
