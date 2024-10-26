@@ -17,13 +17,14 @@ import { useAuth, useUser } from '@clerk/nextjs'; // Import useUser to get organ
 interface IncidentComponentProps {
     services: Service[];
     token: string;
+    incidents: Incident[];
+    setIncidents: React.Dispatch<React.SetStateAction<Incident[]>>;
 }
 
-const IncidentComponent: React.FC<IncidentComponentProps> = ({ services }) => {
+const IncidentComponent: React.FC<IncidentComponentProps> = ({ services, incidents, setIncidents }) => {
     const { getToken } = useAuth();
     const { user } = useUser(); // Get the user object with organization details
     const [token, setToken] = useState<string | null>(null);
-    const [incidents, setIncidents] = useState<Incident[]>([]);
     const [newIncident, setNewIncident] = useState<CreateIncident>({
         title: '',
         description: '',
@@ -70,7 +71,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ services }) => {
     }, [token]);
 
     useEffect(() => {
-        const socket = io(process.env.NEXT_PUBLIC_WEBSOCKET_SERVER_URL, {
+        const socket = io("wss://status-page-kappa.vercel.app", {
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             transports: ['websocket', 'polling']
@@ -147,7 +148,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ services }) => {
         setEditingIncident(incident);
         setNewIncident({
             ...incident,
-            service: incident.service._id.toString()
+            service: (incident.service).toString()
         });
         setIsDialogOpen(true);
     };

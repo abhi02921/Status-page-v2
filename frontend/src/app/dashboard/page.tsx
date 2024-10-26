@@ -117,12 +117,12 @@ const Dashboard: React.FC = () => {
 
             {/* Services Section */}
             {!loadingServices && token && (
-                <ServiceComponent incidents={incidents} token={token} />
+                <ServiceComponent incidents={incidents} token={token} services={services} setServices={setServices} />
             )}
 
             {/* Incidents Section */}
             {!loadingServices && services.length > 0 && token ? (
-                <IncidentComponent services={services} token={token} />
+                <IncidentComponent services={services} incidents={incidents} setIncidents={setIncidents} token={token} />
             ) : (
                 <p>Loading services...</p>
             )}

@@ -4,6 +4,7 @@ import { NewService, Service } from "@/interface/service.interface";
 // Base URL for your API
 const BASE_URL = `https://status-page-kappa.vercel.app/api`;
 
+
 // Function to fetch all services
 export const fetchServices = async (token: string): Promise<Service[]> => {
     const response = await fetch(`${BASE_URL}/services`, {

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { fetchServices, addService, updateService, deleteService } from '@/utils/api'; // Adjust import path as necessary
+import { fetchServices, addService, updateService, deleteService, deleteIncident } from '@/utils/api'; // Adjust import path as necessary
 import { NewService, Service as FetchedService } from '@/interface/service.interface';
 import IncidentGraph from '../incident-graph/incidentGraph';
 import { Incident } from '@/interface/incident.interface';
@@ -20,11 +20,12 @@ type NewServiceInput = Pick<NewService, 'name' | 'description' | 'status'>;
 interface ServiceComponentProps {
     incidents: Incident[];
     token: string; // Include token for API authentication
+    services: FetchedService[];
+    setServices: React.Dispatch<React.SetStateAction<FetchedService[]>>;
 }
 
-const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token }) => {
+const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, services, setServices }) => {
     const { user } = useUser(); // Get the user object with organization details
-    const [services, setServices] = useState<FetchedService[]>([]); // Store fetched services
     const [newService, setNewService] = useState<NewServiceInput>({
         name: '',
         description: '',
@@ -67,7 +68,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token })
 
     useEffect(() => {
         // Connect to the WebSocket server
-        const socket = io(process.env.NEXT_PUBLIC_WEBSOCKET_SERVER_URL, {
+        const socket = io("wss://status-page-kappa.vercel.app", {
             reconnectionAttempts: 5, // Number of reconnection attempts
             reconnectionDelay: 1000,
             transports: ['websocket', 'polling'] // Delay between each attempt (in ms)
@@ -77,7 +78,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token })
         socket.on('service', (data) => {
             const { action, service, serviceId } = data;
 
-            setServices((prevServices: FetchedService[]) => {
+            setServices((prevServices) => {
                 if (action === 'create') {
                     // Add the new service to the list
                     return [...prevServices, service];
@@ -109,7 +110,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token })
                 // Update existing service
                 const updatedService = await updateService(editingService._id, newService, token);
 
-                setServices((prevServices) =>
+                setServices((prevServices: FetchedService[]) =>
                     prevServices.map((service) =>
                         service._id === editingService._id ? updatedService : service
                     )
@@ -147,8 +148,12 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token })
         if (!isAdmin) return; // Prevent non-admins from deleting services
 
         try {
+            for (const incident of incidents && incidents.filter(incident => (incident.service).toString() === id)) {
+                await deleteIncident(incident._id, token);
+            }
             await deleteService(id, token);
             setServices((prevServices) => prevServices.filter((service) => service._id !== id));
+
         } catch (error) {
             console.error('Error deleting service:', error);
             setError('Failed to delete service');
