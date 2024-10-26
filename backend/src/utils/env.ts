@@ -11,4 +11,5 @@ export const ENV = {
   CLERK_AUDIENCE: process.env.CLERK_AUDIENCE || '',
   MONGODB_URI: process.env.MONGODB_URI || '',
   MONGO_DB_PORT: process.env.MONGO_DB_PORT || '3000',
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
 };

@@ -5,17 +5,26 @@ import { successResponse, errorResponse } from '../utils/response.util';
 import { getAuth } from '@clerk/express';
 
 class ServiceController {
+  // Create a service
   async createService(req: Request, res: Response) {
     try {
       const user = getAuth(req);
-      if (!user.orgId) {
+      const organizationId = user.orgId; // Getting organization ID from the authenticated user
+
+      if (!organizationId) {
         return errorResponse(res, 'Organization not found', 404);
       }
+
       const data: CreateServiceDTO = {
         ...req.body,
-        organizationId: user.orgId, // Extracting orgId from authenticated user
+        organizationId, // Binding the service to the organization
       };
+
       const service = await serviceService.createService(data);
+
+      // Emit the new service via WebSocket to all connected clients
+      req.io.emit('service', { action: 'create', service });
+
       return successResponse(res, 'Service created successfully', service);
     } catch (error) {
       if (error instanceof Error) {
@@ -25,32 +34,23 @@ class ServiceController {
     }
   }
 
-  async getAllServices(req: Request, res: Response) {
-    try {
-      const user = getAuth(req);
-      if (!user.orgId) {
-        return errorResponse(res, 'Organization not found', 404);
-      }
-      const services = await serviceService.getAllServices(user.orgId); 
-      return successResponse(res, 'Services retrieved successfully', services);
-    } catch (error) {
-      if (error instanceof Error) {
-        return errorResponse(res, error.message);
-      }
-      return errorResponse(res, 'An unknown error occurred');
-    }
-  }
-
+  // Get a service by ID
   async getServiceById(req: Request, res: Response) {
     try {
       const user = getAuth(req);
-      if (!user.orgId) {
+      const organizationId = user.orgId;
+
+      if (!organizationId) {
         return errorResponse(res, 'Organization not found', 404);
       }
-      const service = await serviceService.getServiceById(req.params.id, user.orgId); // Pass orgId
+
+      const { id } = req.params;
+      const service = await serviceService.getServiceById(id, organizationId);
+
       if (!service) {
         return errorResponse(res, 'Service not found', 404);
       }
+
       return successResponse(res, 'Service retrieved successfully', service);
     } catch (error) {
       if (error instanceof Error) {
@@ -60,18 +60,19 @@ class ServiceController {
     }
   }
 
-  async updateService(req: Request, res: Response) {
+  // Get all services for the organization
+  async getAllServices(req: Request, res: Response) {
     try {
       const user = getAuth(req);
-      if (!user.orgId) {
+      const organizationId = user.orgId;
+
+      if (!organizationId) {
         return errorResponse(res, 'Organization not found', 404);
       }
-      const data: UpdateServiceDTO = req.body;
-      const service = await serviceService.updateService(req.params.id, data, user.orgId); // Pass orgId
-      if (!service) {
-        return errorResponse(res, 'Service not found', 404);
-      }
-      return successResponse(res, 'Service updated successfully', service);
+
+      const services = await serviceService.getAllServices(organizationId);
+
+      return successResponse(res, 'Services retrieved successfully', services);
     } catch (error) {
       if (error instanceof Error) {
         return errorResponse(res, error.message);
@@ -80,17 +81,58 @@ class ServiceController {
     }
   }
 
+  // Update a service
+  async updateService(req: Request, res: Response) {
+    try {
+      const user = getAuth(req);
+      const organizationId = user.orgId;
+
+      if (!organizationId) {
+        return errorResponse(res, 'Organization not found', 404);
+      }
+
+      const { id } = req.params;
+      const data: UpdateServiceDTO = req.body;
+
+      const updatedService = await serviceService.updateService(id, data, organizationId);
+
+      if (!updatedService) {
+        return errorResponse(res, 'Service not found', 404);
+      }
+
+      // Emit the updated service via WebSocket to all connected clients
+      req.io.emit('service', { action: 'update', service: updatedService });
+
+      return successResponse(res, 'Service updated successfully', updatedService);
+    } catch (error) {
+      if (error instanceof Error) {
+        return errorResponse(res, error.message);
+      }
+      return errorResponse(res, 'An unknown error occurred');
+    }
+  }
+
+  // Delete a service
   async deleteService(req: Request, res: Response) {
     try {
       const user = getAuth(req);
-      if (!user.orgId) {
+      const organizationId = user.orgId;
+
+      if (!organizationId) {
         return errorResponse(res, 'Organization not found', 404);
       }
-      const service = await serviceService.deleteService(req.params.id, user.orgId); // Pass orgId
-      if (!service) {
+
+      const { id } = req.params;
+      const deletedService = await serviceService.deleteService(id, organizationId);
+
+      if (!deletedService) {
         return errorResponse(res, 'Service not found', 404);
       }
-      return successResponse(res, 'Service deleted successfully', service);
+
+      // Emit the deleted service via WebSocket to all connected clients
+      req.io.emit('service', { action: 'delete', serviceId: id });
+
+      return successResponse(res, 'Service deleted successfully', deletedService);
     } catch (error) {
       if (error instanceof Error) {
         return errorResponse(res, error.message);

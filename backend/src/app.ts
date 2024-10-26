@@ -1,4 +1,3 @@
-// src/app.ts
 import express from 'express';
 import cors from 'cors';
 import { requireAuth, clerkMiddleware } from '@clerk/express';
@@ -26,22 +25,31 @@ const httpServer = createServer(app);
 // Setup Socket.IO
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: '*', // Adjust this for security (use specific domain in production)
-    methods: ['GET', 'POST'],
+    origin: ENV.FRONTEND_URL, // Ensure you set this to your frontend domain for security
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
   },
+  transports: ['websocket', 'polling'],
 });
 
-// Attach the Socket.IO instance to requests
+// Attach the Socket.IO instance to requests (Socket.IO middleware)
 app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   req.io = io;
   next();
 });
 
-// Middleware and Routes setup
-app.use(cors());
-app.use(requireAuth());
+// Middleware setup
+app.use(cors());  // Apply CORS early to avoid issues with cross-origin requests
+app.use(express.json()); // Parse JSON bodies
+
+app.get('/', (req, res) => {
+  res.status(200).send({ message: 'Welcome to the API. No authentication required here.' });
+});
+
+// Clerk middleware should be applied before authentication
 app.use(clerkMiddleware());
-app.use(express.json());
+app.use(requireAuth());
+
+// API Routes
 app.use('/api', serviceRoutes);
 app.use('/api', incidentRoutes);
 
@@ -57,14 +65,22 @@ export const connectDB = async () => {
   }
 };
 
-// Socket.IO setup
+// Socket.IO event handling
 io.on('connection', (socket) => {
-  console.log('A user connected via Socket.IO');
+  console.log('A user connected via Socket.IO:', socket.id);
+  console.log(socket.request);
+  // You can add more event listeners here
+  socket.on('custom_event', (data) => {
+    console.log('Custom event received:', data);
+    // Handle the event, e.g., emit to others, save data, etc.
+  });
 
+  // Handle user disconnection
   socket.on('disconnect', () => {
-    console.log('User disconnected');
+    console.log('User disconnected:', socket.id);
   });
 });
 
+// Export HTTP server and app for further usage
 export { httpServer };
 export default app;

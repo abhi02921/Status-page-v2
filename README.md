@@ -1,3 +1,6 @@
+
+---
+
 # Status Page Application
 
 A simplified status page application that allows administrators to manage services and their statuses, providing a public-facing page for users to view the current status of all services. The application includes user authentication, service management, incident management, real-time updates via WebSocket, and a clean user interface.
@@ -40,15 +43,24 @@ A simplified status page application that allows administrators to manage servic
   - Clerk for authentication
 
 - **Frontend**:
-  - React
+  - **Next.js** (instead of React)
   - ShadcnUI for UI components
-  - Axios for API requests
+  - socket.io for real time status update
 
 ## Project Structure
 
-status-page-app/ ├── status-page-backend/ # Backend code │ ├── src/ │ ├── package.json │ ├── tsconfig.json │ 
-└── ... └── status-page-frontend/ # Frontend code ├── src/ ├── package.json └── ...
-
+```bash
+status-page-app/
+├── backend/        # Backend code
+│   ├── src/
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── ...
+└── frontend/       # Frontend code (Next.js)
+    ├── src/
+    ├── package.json
+    └── ...
+```
 
 ## Getting Started
 
@@ -62,81 +74,80 @@ status-page-app/ ├── status-page-backend/ # Backend code │ ├── src
 
 You will need to create a `.env` file in both the `status-page-backend` and `status-page-frontend` folders with the following variables:
 
-**Backend (.env)**
+#### **Backend (`.env`)**
+```bash
 MONGODB_URI=your_mongodb_connection_string 
 CLERK_API_KEY=your_clerk_api_key 
 WEBSOCKET_URL=your_websocket_url
-
-
-**Frontend (.env)**
-REACT_APP_CLERK_FRONTEND_API_KEY=your_clerk_api_key
-PORT=
-REACT_APP_BACKEND_URL=your_backend_url
-REACT_APP_WEBSOCKET_URL=your_websocket_url
-
-#### Install the dependencies:
-```bash
-npm install
 ```
-#### Run the backend server:
+
+#### **Frontend (`.env.local`)**
+```bash
+NEXT_PUBLIC_BACKEND_URL=your_backend_url
+NEXT_PUBLIC_WEBSOCKET_SERVER_URL=your_websocket_url
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
+```
+
+### Install Dependencies
+
+1. **Backend**:
+   Navigate to the `status-page-backend` directory and install the dependencies:
+   ```bash
+   cd backend
+   npm install
+   ```
+
+2. **Frontend**:
+   Navigate to the `status-page-frontend` directory and install the dependencies:
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+### Running the Application
+
+#### Run the Backend Server
+
+Make sure your MongoDB server is running (if using locally), and then run the backend:
+
 ```bash
 npm run dev
 ```
 
-####Frontend
-Navigate to the status-page-frontend directory:
-```bash
-cd status-page-frontend
-```
-Install the dependencies:
-```bash
+This will start the backend on `http://localhost:5000` (or whatever port you configure).
 
-npm install
-```
-Run the frontend server:
+#### Run the Frontend (Next.js)
+
+Navigate to the `status-page-frontend` directory and start the Next.js frontend server:
+
 ```bash
-npm start
+npm run dev
 ```
+
+This will start the frontend on `http://localhost:3000`.
+
+Now, you should have both the backend and frontend running locally.
+
 ## Deployment
 
-This application can be deployed to platforms such as Heroku for the backend and Vercel for the frontend. Here are some brief instructions:
+You can deploy this application using platforms like **Vercel** for the frontend and **Railway**, **Render**, or similar platforms for the backend.
 
-### Deploying Backend to Heroku
+### Deploying the Backend (Railway, Render, or others)
 
-1. **Create a new Heroku app**:
-   - Log in to your Heroku account and create a new app.
+1. **Create a new project** on your chosen platform (e.g., Railway or Render).
+2. **Link it to your `status-page-backend` directory**.
+3. **Set the environment variables** on the deployment platform as required:
+   - `CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+   - `MONGODB_URI`
+   - `CLERK_API_KEY`
+   - `WEBSOCKET_URL`
+4. **Deploy the backend**.
 
-2. **Link it to your `status-page-backend` directory**:
-   - In your terminal, navigate to the `status-page-backend` directory.
-   - Run the following command to initialize a git repository if you haven't done so:
-     ```bash
-     git init
-     ```
-   - Add your Heroku remote:
-     ```bash
-     heroku git:remote -a your-heroku-app-name
-     ```
+Refer to the documentation of the platform you're using for more details on how to deploy Node.js applications.
 
-3. **Set the environment variables on Heroku**:
-   - Use the Heroku dashboard to navigate to your app's settings and add the necessary environment variables, or use the Heroku CLI:
-     ```bash
-     heroku config:set MONGODB_URI=your_mongodb_connection_string
-     heroku config:set CLERK_API_KEY=your_clerk_api_key
-     heroku config:set WEBSOCKET_URL=your_websocket_url
-     ```
-
-4. **Push your code to Heroku**:
-   - Commit your changes if you haven't already:
-     ```bash
-     git add .
-     git commit -m "Deploying to Heroku"
-     ```
-   - Push your code to Heroku:
-     ```bash
-     git push heroku master
-     ```
-
-### Deploying Frontend to Vercel
+### Deploying the Frontend to Vercel
 
 1. **Create a new Vercel project**:
    - Sign in to your Vercel account and click on "New Project".
@@ -147,12 +158,19 @@ This application can be deployed to platforms such as Heroku for the backend and
 
 3. **Set the environment variables in Vercel**:
    - Go to your project's settings in Vercel and add the necessary environment variables:
-     ```
-     REACT_APP_CLERK_FRONTEND_API=your_clerk_frontend_api
-     REACT_APP_WEBSOCKET_URL=your_websocket_url
+     ```bash
+     NEXT_PUBLIC_BACKEND_URL=your_backend_url
+     NEXT_PUBLIC_WEBSOCKET_SERVER_URL=your_websocket_url
+     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
+     CLERK_SECRET_KEY=your_clerk_secret_key
      ```
 
 4. **Deploy your project**:
-   - Click on "Deploy" to build and deploy your frontend application.
+   - Click on "Deploy" to build and deploy your Next.js frontend application.
 
-Your application should now be live on both Heroku and Vercel! 
+## License
+
+This project is licensed under the MIT License.
+
+---
+
