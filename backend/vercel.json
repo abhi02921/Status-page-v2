@@ -9,7 +9,7 @@
     "rewrites": [
         {
             "src": "/(.*)",
-            "dest": "/src/server.ts",
+            "dest": "/",
             "methods": [
                 "GET",
                 "POST",
