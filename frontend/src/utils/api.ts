@@ -2,7 +2,7 @@ import { CreateIncident, Incident } from "@/interface/incident.interface";
 import { NewService, Service } from "@/interface/service.interface";
 
 // Base URL for your API
-const BASE_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL}`;
+const BASE_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`;
 
 
 // Function to fetch all services
