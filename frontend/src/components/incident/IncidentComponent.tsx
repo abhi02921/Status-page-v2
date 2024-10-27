@@ -11,14 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from '../ui/badge';
 import { CreateIncident, Incident } from '@/interface/incident.interface';
 import { fetchIncidents, addIncident, updateIncident, deleteIncident, fetchServices } from '@/utils/api';
-import { useAuth, useUser } from '@clerk/nextjs'; // Import useUser to get organization membership
+import { useUser } from '@clerk/nextjs';
 
-interface IncidentComponentProps { }
+interface IncidentComponentProps {
+    token: string;
+}
 
-const IncidentComponent: React.FC<IncidentComponentProps> = ({ }) => {
-    const { getToken } = useAuth();
-    const { user } = useUser(); // Get the user object with organization details
-    const [token, setToken] = useState<string | null>(null);
+const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
+    const { user } = useUser();
     const [newIncident, setNewIncident] = useState<CreateIncident>({
         title: '',
         description: '',
@@ -27,6 +27,8 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ }) => {
     });
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [loading, setLoading] = useState<boolean>(false); // Track loading state for CRUD operations
 
     const statusColors: Record<string, string> = {
         'Operational': 'bg-green-500',
@@ -35,50 +37,66 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ }) => {
         'Major Outage': 'bg-red-500',
     };
 
-    // Determine if the user is an admin
     const isAdmin = user?.organizationMemberships?.some((membership) =>
         membership.role === "org:admin"
     );
 
-    useEffect(() => {
-        const fetchToken = async () => {
-            const token = await getToken();
-            if (token) {
-                setToken(token);
-            }
-        };
-        fetchToken();
-    }, [getToken]);
-    // SWR: Fetch services and incidents
+
     const { data: services, error: servicesError, mutate: mutateServices } = useSWR(
         token ? ['/api/services', token] : null,
-        () => fetchServices(token as string), { refreshInterval: 2000 }
+        () => fetchServices(token as string),
+        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
 
-    const { data: incidents, error, mutate } = useSWR(token ? ['/api/incidents', token] : null,
-        () => fetchIncidents(token as string), { refreshInterval: 2000 });
+    const { data: incidents, error, mutate } = useSWR(
+        token ? ['/api/incidents', token] : null,
+        () => fetchIncidents(token as string),
+        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+    );
+    const [localIncidents, setLocalIncidents] = useState<Incident[]>([]); // Local caching for incidents
+    // Set local incidents when SWR fetches new data
+    useEffect(() => {
+        if (incidents) {
+            setLocalIncidents(incidents);
+        }
+    }, [incidents]);
 
     if (error) return <div>Failed to load incidents</div>;
     if (!incidents) return <div>Loading incidents...</div>;
 
     // Handle Create/Update Incident
     const handleIncidentSubmit = async () => {
-        if (!isAdmin) return; // Prevent non-admins from submitting
+        if (!isAdmin) return;
+
+        if (!newIncident.title || !newIncident.description || !newIncident.service || !newIncident.status) {
+            setErrorMessage("All fields are required.");
+            return;
+        } else {
+            setErrorMessage(null);
+        }
+
+        setLoading(true); // Set loading to true when starting the operation
 
         try {
             if (editingIncident && token) {
                 const updatedIncident = await updateIncident(editingIncident._id, newIncident, token);
+                setLocalIncidents(localIncidents.map(incident => incident._id === updatedIncident._id ? updatedIncident : incident));
                 mutate();
+
             } else {
                 if (token) {
-                    await addIncident({ ...newIncident }, token);
+                    const newIncidentResponse = await addIncident({ ...newIncident }, token);
+                    setLocalIncidents([...localIncidents, newIncidentResponse]);
+                    mutate();
                 }
-                mutate();
             }
         } catch (error) {
             console.error("Failed to submit incident:", error);
+        } finally {
+            setLoading(false); // Reset loading state after operation completes
         }
 
+        // Reset form and close dialog
         setNewIncident({ title: '', description: '', status: 'Operational', service: '' });
         setEditingIncident(null);
         setIsDialogOpen(false);
@@ -86,26 +104,31 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ }) => {
 
     // Handle Delete Incident
     const handleDeleteIncident = async (id: string) => {
-        if (!isAdmin) return; // Prevent non-admins from deleting
+        if (!isAdmin) return;
+
+        setLoading(true); // Set loading to true when starting the operation
 
         try {
             if (token) {
                 await deleteIncident(id, token);
-                mutate();
+                setLocalIncidents(localIncidents.filter(incident => incident._id !== id));
+                mutate(); // Re-fetch incidents
             }
         } catch (error) {
             console.error("Failed to delete incident:", error);
+        } finally {
+            setLoading(false); // Reset loading state after operation completes
         }
     };
 
     // Handle Edit Button
     const handleEditIncident = (incident: Incident) => {
-        if (!isAdmin) return; // Prevent non-admins from editing
+        if (!isAdmin) return;
 
         setEditingIncident(incident);
         setNewIncident({
             ...incident,
-            service: (incident.service).toString()
+            service: (incident.service as any).toString() // Ensure service is in string format
         });
         setIsDialogOpen(true);
     };
@@ -129,6 +152,11 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ }) => {
                                 <DialogTitle>{editingIncident ? 'Edit Incident' : 'Report New Incident'}</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
+                                {errorMessage && (
+                                    <Alert>
+                                        <AlertDescription className="text-red-600">{errorMessage}</AlertDescription>
+                                    </Alert>
+                                )}
                                 <Input
                                     placeholder="Incident Title"
                                     value={newIncident.title}
@@ -171,8 +199,8 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ }) => {
                                 </Select>
                             </div>
                             <DialogFooter>
-                                <Button onClick={handleIncidentSubmit}>
-                                    {editingIncident ? 'Update Incident' : 'Create Incident'}
+                                <Button onClick={handleIncidentSubmit} disabled={loading}>
+                                    {loading ? 'Processing...' : (editingIncident ? 'Update Incident' : 'Create Incident')}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -201,8 +229,22 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ }) => {
                                         </Badge>
                                         {isAdmin && (
                                             <div className="space-x-2">
-                                                <Button variant="outline" size="sm" onClick={() => handleEditIncident(incident)}>Edit</Button>
-                                                <Button variant="destructive" size="sm" onClick={() => handleDeleteIncident(incident._id)}>Delete</Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleEditIncident(incident)}
+                                                    disabled={loading}
+                                                >
+                                                    Edit
+                                                </Button>
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteIncident(incident._id)}
+                                                    disabled={loading}
+                                                >
+                                                    {loading ? 'Deleting...' : 'Delete'}
+                                                </Button>
                                             </div>
                                         )}
                                     </div>

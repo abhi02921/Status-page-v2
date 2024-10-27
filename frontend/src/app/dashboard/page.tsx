@@ -6,12 +6,23 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import IncidentComponent from '@/components/incident/IncidentComponent';
 import ServiceComponent from '@/components/service/service';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { useAuth } from '@clerk/nextjs';
 
 const Dashboard: React.FC = () => {
     const { user } = useUser();
     const [isOrgProfileOpen, setIsOrgProfileOpen] = useState(false);
+    const [token, setToken] = useState<string | null>(null);
+    const { getToken } = useAuth();
 
-
+    useEffect(() => {
+        const fetchToken = async () => {
+            const token = await getToken();
+            if (token) {
+                setToken(token);
+            }
+        };
+        fetchToken();
+    }, [getToken]);
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             {/* Navbar */}
@@ -59,11 +70,11 @@ const Dashboard: React.FC = () => {
 
             {/* Services Section */}
 
-            <ServiceComponent />
+            {token && <ServiceComponent token={token} />}
 
 
             {/* Incidents Section */}
-            <IncidentComponent />
+            {token && <IncidentComponent token={token} />}
         </div>
     );
 };

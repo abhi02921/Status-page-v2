@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,18 +11,14 @@ import { fetchServices, addService, updateService, deleteService, deleteIncident
 import { NewService, Service as FetchedService } from '@/interface/service.interface';
 import IncidentGraph from '../incident-graph/incidentGraph';
 import { Incident } from '@/interface/incident.interface';
-import { useAuth, useUser } from '@clerk/nextjs'; // Import Clerk's useUser
-
-
+import { useUser } from '@clerk/nextjs'; // Import Clerk's useUser
 
 interface ServiceComponentProps {
-
+    token: string;
 }
 
-const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
-    const { getToken } = useAuth();
+const ServiceComponent: React.FC<ServiceComponentProps> = ({ token }) => {
     const { user } = useUser(); // Get the user object with organization details
-    const [token, setToken] = useState<string | null>(null);
     const [newService, setNewService] = useState<NewService>({
         name: '',
         description: '',
@@ -35,6 +31,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
     const [isGraphDialogOpen, setIsGraphDialogOpen] = useState(false);
     const [loading, setLoading] = useState(false); // Add loading state
 
+
     const statusColors: Record<string, string> = {
         'Operational': 'bg-green-500',
         'Degraded Performance': 'bg-yellow-500',
@@ -46,29 +43,26 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
     const isAdmin = user?.organizationMemberships?.some((membership) =>
         membership.role === "org:admin"
     );
-
-
-    useEffect(() => {
-        const fetchToken = async () => {
-            const token = await getToken();
-            if (token) {
-                setToken(token);
-            }
-        };
-        fetchToken();
-    }, [getToken]);
-
     // SWR: Fetch services and incidents
     const { data: services, error: servicesError, mutate: mutateServices } = useSWR(
         token ? ['/api/services', token] : null,
-        () => fetchServices(token as string), { refreshInterval: 2000 }
+        () => fetchServices(token as string),
+        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
 
     const { data: incidents, error: incidentsError, mutate: mutateIncidents } = useSWR(
         token ? ['/api/incidents', token] : null,
-        () => fetchIncidents(token as string), { refreshInterval: 2000 }
+        () => fetchIncidents(token as string),
+        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
-
+    // Local state to hold services data
+    const [localServices, setLocalServices] = useState<FetchedService[]>(services || []);
+    // Update local state when SWR data is fetched
+    useEffect(() => {
+        if (services) {
+            setLocalServices(services);
+        }
+    }, [services]);
     if (servicesError) return <div>Error loading services</div>;
     if (incidentsError) return <div>Error loading incidents</div>;
     if (!services || !incidents) return <div>Loading...</div>;
@@ -77,12 +71,24 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
     const handleServiceSubmit = async () => {
         if (!isAdmin) return; // Prevent non-admins from submitting services
 
+        // Validate mandatory fields
+        if (!newService.name || !newService.description) {
+            setError('Please fill in all required fields.');
+            return;
+        }
+        setError(null); // Clear error if validation passes
+
         setLoading(true); // Start loading
         try {
             if (editingService) {
                 // Update existing service
                 const updatedService = await updateService(editingService._id, newService, token as string);
 
+                setLocalServices(prev =>
+                    prev.map((service) =>
+                        service._id === editingService._id ? updatedService : service
+                    )
+                );
                 mutateServices(prevServices => {
                     if (!prevServices || prevServices.length === 0) {
                         return [updatedService];
@@ -91,10 +97,10 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
                         service._id === editingService._id ? updatedService : service
                     );
                 }, false); // Optimistic update
-
             } else {
                 // Create new service
-                await addService(newService, token as string);
+                const createdService = await addService(newService, token as string);
+                setLocalServices(prev => [...prev, createdService]);
                 mutateServices(); // Revalidate after adding new service
             }
 
@@ -135,10 +141,11 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
 
             // Delete the service itself
             await deleteService(id, token as string);
-
+            setLocalServices(prev => prev.filter(service => service._id !== id));
             // Mutate both services and incidents after deletion
             mutateServices(); // Revalidate services
             mutateIncidents(); // Revalidate incidents
+            setLocalServices(prev => prev.filter(service => service._id !== id));
 
         } catch (error) {
             console.error('Error deleting service:', error);
@@ -177,11 +184,13 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
                                     placeholder="Service Name"
                                     value={newService.name}
                                     onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+                                    required // Mark as required
                                 />
                                 <Textarea
                                     placeholder="Description"
                                     value={newService.description}
                                     onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+                                    required // Mark as required
                                 />
                                 <Select
                                     value={newService.status}
@@ -209,7 +218,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
                 )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {services.map((service) => (
+                {localServices.map((service) => (
                     <Card key={service._id}>
                         <CardHeader>
                             <div className="flex justify-between items-start">
@@ -226,7 +235,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
                                             Edit
                                         </Button>
                                         <Button variant="destructive" size="sm" onClick={() => handleDeleteService(service._id)} disabled={loading}>
-                                            {loading ? 'Deleting...' : 'Delete'}
+                                            {loading ? 'Delete' : 'Delete'}
                                         </Button>
                                     </>
                                 )}
