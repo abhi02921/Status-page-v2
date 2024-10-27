@@ -1,74 +1,16 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useAuth, UserButton, useUser } from '@clerk/nextjs';
+import { UserButton, useUser } from '@clerk/nextjs';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import IncidentComponent from '@/components/incident/IncidentComponent';
 import ServiceComponent from '@/components/service/service';
-import { fetchIncidents, fetchServices } from '@/utils/api'; // Import the fetchServices function
-import { Service } from '@/interface/service.interface';
-import { Incident } from '@/interface/incident.interface';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 const Dashboard: React.FC = () => {
-    const { getToken } = useAuth();
     const { user } = useUser();
     const [isOrgProfileOpen, setIsOrgProfileOpen] = useState(false);
-    const [services, setServices] = useState<Service[]>([]);
-    const [token, setToken] = useState<string | null>(null); // State for the authentication token
-    const [loadingServices, setLoadingServices] = useState(true); // State to handle loading
-    const [incidents, setIncidents] = useState<Incident[]>([]);
-    const [loadingIncidents, setLoadingIncidents] = useState(true);
-    // Fetch the token from Clerk when user is authenticated
-    useEffect(() => {
-        const fetchToken = async () => {
-            const token = await getToken(); // Await the token retrieval
-            if (token) {
-                setToken(token); // Set the token
-            }
-        };
-        fetchToken();
-    }, [getToken]); // Dependency on getToken, not token
 
-
-    // Fetch services when the token is available
-    useEffect(() => {
-        const loadServices = async () => {
-            if (token) {
-                try {
-                    setLoadingServices(true); // Start loading
-                    const fetchedServices = await fetchServices(token);
-                    setServices(fetchedServices); // Update services state
-                } catch (error) {
-                    console.error('Failed to fetch services:', error);
-                } finally {
-                    setLoadingServices(false); // End loading
-                }
-            }
-        };
-
-        loadServices();
-    }, [token]); // Fetch services whenever the token changes
-
-
-    // Fetch services when the token is available
-    useEffect(() => {
-        const loadIncidents = async () => {
-            if (token) {
-                try {
-                    setLoadingIncidents(true); // Start loading
-                    const fetchedIncidents = await fetchIncidents(token);
-                    setIncidents(fetchedIncidents); // Update services state
-                } catch (error) {
-                    console.error('Failed to fetch incidents:', error);
-                } finally {
-                    setLoadingIncidents(false); // End loading
-                }
-            }
-        };
-
-        loadIncidents();
-    }, [token]); // Fetch services whenever the token changes
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
@@ -116,16 +58,12 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Services Section */}
-            {!loadingServices && token && (
-                <ServiceComponent incidents={incidents} token={token} services={services} setServices={setServices} />
-            )}
+
+            <ServiceComponent />
+
 
             {/* Incidents Section */}
-            {!loadingServices && services.length > 0 && token ? (
-                <IncidentComponent services={services} incidents={incidents} setIncidents={setIncidents} token={token} />
-            ) : (
-                <p>Loading services...</p>
-            )}
+            <IncidentComponent />
         </div>
     );
 };

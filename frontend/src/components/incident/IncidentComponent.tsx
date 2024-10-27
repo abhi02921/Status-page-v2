@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,20 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from '../ui/badge';
-import { Service } from '@/interface/service.interface';
 import { CreateIncident, Incident } from '@/interface/incident.interface';
-import { fetchIncidents, addIncident, updateIncident, deleteIncident } from '@/utils/api';
-import io from 'socket.io-client';
+import { fetchIncidents, addIncident, updateIncident, deleteIncident, fetchServices } from '@/utils/api';
 import { useAuth, useUser } from '@clerk/nextjs'; // Import useUser to get organization membership
 
-interface IncidentComponentProps {
-    services: Service[];
-    token: string;
-    incidents: Incident[];
-    setIncidents: React.Dispatch<React.SetStateAction<Incident[]>>;
-}
+interface IncidentComponentProps { }
 
-const IncidentComponent: React.FC<IncidentComponentProps> = ({ services, incidents, setIncidents }) => {
+const IncidentComponent: React.FC<IncidentComponentProps> = ({ }) => {
     const { getToken } = useAuth();
     const { user } = useUser(); // Get the user object with organization details
     const [token, setToken] = useState<string | null>(null);
@@ -55,49 +49,17 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ services, inciden
         };
         fetchToken();
     }, [getToken]);
+    // SWR: Fetch services and incidents
+    const { data: services, error: servicesError, mutate: mutateServices } = useSWR(
+        token ? ['/api/services', token] : null,
+        () => fetchServices(token as string), { refreshInterval: 2000 }
+    );
 
-    useEffect(() => {
-        const loadIncidents = async () => {
-            if (token) {
-                try {
-                    const fetchedIncidents = await fetchIncidents(token);
-                    setIncidents(fetchedIncidents);
-                } catch (error) {
-                    console.error("Failed to fetch incidents:", error);
-                }
-            }
-        };
-        loadIncidents();
-    }, [token]);
+    const { data: incidents, error, mutate } = useSWR(token ? ['/api/incidents', token] : null,
+        () => fetchIncidents(token as string), { refreshInterval: 2000 });
 
-    useEffect(() => {
-        const socket = io("wss://status-page-kappa.vercel.app", {
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000,
-            transports: ['websocket', 'polling']
-        });
-
-        socket.on('incident', (data) => {
-            const { action, incident, incidentId } = data;
-
-            setIncidents((prevIncidents: Incident[]) => {
-                if (action === 'create') {
-                    return [...prevIncidents, incident];
-                } else if (action === 'update') {
-                    return prevIncidents.map((inc) =>
-                        inc._id === incident._id ? incident : inc
-                    );
-                } else if (action === 'delete') {
-                    return prevIncidents.filter((inc) => inc._id !== incidentId);
-                }
-                return prevIncidents;
-            });
-        });
-
-        return () => {
-            socket.disconnect();
-        };
-    }, []);
+    if (error) return <div>Failed to load incidents</div>;
+    if (!incidents) return <div>Loading incidents...</div>;
 
     // Handle Create/Update Incident
     const handleIncidentSubmit = async () => {
@@ -106,17 +68,12 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ services, inciden
         try {
             if (editingIncident && token) {
                 const updatedIncident = await updateIncident(editingIncident._id, newIncident, token);
-                setIncidents((prevIncidents) =>
-                    prevIncidents.map((incident) =>
-                        incident._id === editingIncident._id
-                            ? updatedIncident
-                            : incident
-                    )
-                );
+                mutate();
             } else {
                 if (token) {
                     await addIncident({ ...newIncident }, token);
                 }
+                mutate();
             }
         } catch (error) {
             console.error("Failed to submit incident:", error);
@@ -134,7 +91,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ services, inciden
         try {
             if (token) {
                 await deleteIncident(id, token);
-                setIncidents((prevIncidents) => prevIncidents.filter((incident) => incident._id !== id));
+                mutate();
             }
         } catch (error) {
             console.error("Failed to delete incident:", error);
@@ -190,7 +147,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ services, inciden
                                         <SelectValue placeholder="Select Service" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {services.map((service) => (
+                                        {services?.map((service) => (
                                             <SelectItem key={service._id} value={service._id}>
                                                 {service.name}
                                             </SelectItem>
@@ -236,7 +193,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ services, inciden
                                             <h3 className="font-semibold">{incident.title}</h3>
                                             <p className="text-sm text-gray-600">{incident.description}</p>
                                             <p className="text-sm text-gray-500 mt-1">
-                                                Service: {services.find(s => s._id === incident.service._id)?.name}
+                                                Service: {services?.find(s => s._id === incident.service._id)?.name}
                                             </p>
                                         </div>
                                         <Badge className={`${statusColors[incident.status]} text-white`}>

@@ -1,5 +1,5 @@
-"use client";
 import React, { useEffect, useState } from 'react';
+import useSWR from 'swr';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,26 +7,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { fetchServices, addService, updateService, deleteService, deleteIncident } from '@/utils/api'; // Adjust import path as necessary
+import { fetchServices, addService, updateService, deleteService, deleteIncident, fetchIncidents } from '@/utils/api'; // Adjust import path as necessary
 import { NewService, Service as FetchedService } from '@/interface/service.interface';
 import IncidentGraph from '../incident-graph/incidentGraph';
 import { Incident } from '@/interface/incident.interface';
-import { io } from 'socket.io-client';
-import { useUser } from '@clerk/nextjs'; // Import Clerk's useUser
+import { useAuth, useUser } from '@clerk/nextjs'; // Import Clerk's useUser
 
-// Add this type definition
-type NewServiceInput = Pick<NewService, 'name' | 'description' | 'status'>;
+
 
 interface ServiceComponentProps {
-    incidents: Incident[];
-    token: string; // Include token for API authentication
-    services: FetchedService[];
-    setServices: React.Dispatch<React.SetStateAction<FetchedService[]>>;
+
 }
 
-const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, services, setServices }) => {
+const ServiceComponent: React.FC<ServiceComponentProps> = ({ }) => {
+    const { getToken } = useAuth();
     const { user } = useUser(); // Get the user object with organization details
-    const [newService, setNewService] = useState<NewServiceInput>({
+    const [token, setToken] = useState<string | null>(null);
+    const [newService, setNewService] = useState<NewService>({
         name: '',
         description: '',
         status: 'Operational',
@@ -36,6 +33,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, s
     const [editingService, setEditingService] = useState<FetchedService | null>(null); // Track service being edited
     const [selectedService, setSelectedService] = useState<FetchedService | null>(null);
     const [isGraphDialogOpen, setIsGraphDialogOpen] = useState(false);
+    const [loading, setLoading] = useState(false); // Add loading state
 
     const statusColors: Record<string, string> = {
         'Operational': 'bg-green-500',
@@ -49,75 +47,55 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, s
         membership.role === "org:admin"
     );
 
-    // Fetch services on component mount
+
     useEffect(() => {
-        const loadServices = async () => {
+        const fetchToken = async () => {
+            const token = await getToken();
             if (token) {
-                try {
-                    const fetchedServices = await fetchServices(token);
-                    setServices(fetchedServices);
-                } catch (error) {
-                    console.error('Error fetching services:', error);
-                    setError('Failed to load services');
-                }
+                setToken(token);
             }
         };
+        fetchToken();
+    }, [getToken]);
 
-        loadServices();
-    }, [token]);
+    // SWR: Fetch services and incidents
+    const { data: services, error: servicesError, mutate: mutateServices } = useSWR(
+        token ? ['/api/services', token] : null,
+        () => fetchServices(token as string), { refreshInterval: 2000 }
+    );
 
-    useEffect(() => {
-        // Connect to the WebSocket server
-        const socket = io("wss://status-page-kappa.vercel.app", {
-            reconnectionAttempts: 5, // Number of reconnection attempts
-            reconnectionDelay: 1000,
-            transports: ['websocket', 'polling'] // Delay between each attempt (in ms)
-        });
+    const { data: incidents, error: incidentsError, mutate: mutateIncidents } = useSWR(
+        token ? ['/api/incidents', token] : null,
+        () => fetchIncidents(token as string), { refreshInterval: 2000 }
+    );
 
-        // Listen for service updates
-        socket.on('service', (data) => {
-            const { action, service, serviceId } = data;
-
-            setServices((prevServices) => {
-                if (action === 'create') {
-                    // Add the new service to the list
-                    return [...prevServices, service];
-                } else if (action === 'update') {
-                    // Update the service in the list
-                    return prevServices.map((service) =>
-                        service._id === serviceId ? service : service
-                    );
-                } else if (action === 'delete') {
-                    // Remove the service from the list
-                    return prevServices.filter((service) => service._id !== serviceId);
-                }
-                return prevServices;
-            });
-        });
-
-        // Cleanup on component unmount
-        return () => {
-            socket.disconnect();
-        };
-    }, []);
+    if (servicesError) return <div>Error loading services</div>;
+    if (incidentsError) return <div>Error loading incidents</div>;
+    if (!services || !incidents) return <div>Loading...</div>;
 
     // Handle Create/Update Service
     const handleServiceSubmit = async () => {
         if (!isAdmin) return; // Prevent non-admins from submitting services
 
+        setLoading(true); // Start loading
         try {
             if (editingService) {
                 // Update existing service
-                const updatedService = await updateService(editingService._id, newService, token);
+                const updatedService = await updateService(editingService._id, newService, token as string);
 
-                setServices((prevServices: FetchedService[]) =>
-                    prevServices.map((service) =>
+                mutateServices(prevServices => {
+                    if (!prevServices || prevServices.length === 0) {
+                        return [updatedService];
+                    }
+                    return prevServices.map((service) =>
                         service._id === editingService._id ? updatedService : service
-                    )
-                );
+                    );
+                }, false); // Optimistic update
+
             } else {
                 // Create new service
-                await addService(newService, token);
+                await addService(newService, token as string);
+                mutateServices(); // Revalidate after adding new service
             }
 
             // Reset form and close dialog
@@ -127,6 +105,8 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, s
         } catch (error) {
             console.error('Error adding or updating service:', error);
             setError('Failed to create/update service');
+        } finally {
+            setLoading(false); // End loading
         }
     };
 
@@ -147,16 +127,24 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, s
     const handleDeleteService = async (id: string) => {
         if (!isAdmin) return; // Prevent non-admins from deleting services
 
+        setLoading(true); // Start loading
         try {
-            for (const incident of incidents && incidents.filter(incident => (incident.service).toString() === id)) {
-                await deleteIncident(incident._id, token);
-            }
-            await deleteService(id, token);
-            setServices((prevServices) => prevServices.filter((service) => service._id !== id));
+            // Delete all incidents linked to the service
+            const relatedIncidents = incidents.filter((incident: Incident) => incident.service._id === id);
+            await Promise.all(relatedIncidents.map((incident: Incident) => deleteIncident(incident._id, token as string)));
+
+            // Delete the service itself
+            await deleteService(id, token as string);
+
+            // Mutate both services and incidents after deletion
+            mutateServices(); // Revalidate services
+            mutateIncidents(); // Revalidate incidents
 
         } catch (error) {
             console.error('Error deleting service:', error);
             setError('Failed to delete service');
+        } finally {
+            setLoading(false); // End loading
         }
     };
 
@@ -212,8 +200,8 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, s
                                 </Select>
                             </div>
                             <DialogFooter>
-                                <Button onClick={handleServiceSubmit}>
-                                    {editingService ? 'Update Service' : 'Create Service'}
+                                <Button onClick={handleServiceSubmit} disabled={loading}>
+                                    {loading ? 'Processing...' : (editingService ? 'Update Service' : 'Create Service')}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -221,7 +209,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, s
                 )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {services && services.map((service) => (
+                {services.map((service) => (
                     <Card key={service._id}>
                         <CardHeader>
                             <div className="flex justify-between items-start">
@@ -234,15 +222,15 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ incidents, token, s
                             <div className="flex justify-end space-x-2 mt-4">
                                 {isAdmin && ( // Only show Edit and Delete buttons to admins
                                     <>
-                                        <Button variant="outline" size="sm" onClick={() => handleEditService(service)}>
+                                        <Button variant="outline" size="sm" onClick={() => handleEditService(service)} disabled={loading}>
                                             Edit
                                         </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => handleDeleteService(service._id)}>
-                                            Delete
+                                        <Button variant="destructive" size="sm" onClick={() => handleDeleteService(service._id)} disabled={loading}>
+                                            {loading ? 'Deleting...' : 'Delete'}
                                         </Button>
                                     </>
                                 )}
-                                <Button onClick={() => handleViewGraph(service)} variant="outline" size="sm">
+                                <Button onClick={() => handleViewGraph(service)} variant="outline" size="sm" disabled={loading}>
                                     View Incidents
                                 </Button>
                             </div>
