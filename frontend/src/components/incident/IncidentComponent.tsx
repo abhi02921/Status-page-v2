@@ -45,13 +45,13 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
     const { data: services, error: servicesError, mutate: mutateServices } = useSWR(
         token ? ['/api/services', token] : null,
         () => fetchServices(token as string),
-        { refreshInterval: 20000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
 
     const { data: incidents, error, mutate } = useSWR(
         token ? ['/api/incidents', token] : null,
         () => fetchIncidents(token as string),
-        { refreshInterval: 20000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
     const [localIncidents, setLocalIncidents] = useState<Incident[]>([]); // Local caching for incidents
     // Set local incidents when SWR fetches new data
@@ -62,7 +62,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
     }, [incidents]);
 
     if (error) return <div>Failed to load incidents</div>;
-    if (!incidents) return <div>Loading incidents...</div>;
+    if (!localIncidents) return <div>Loading incidents...</div>;
 
     // Handle Create/Update Incident
     const handleIncidentSubmit = async () => {
@@ -209,7 +209,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
             </div>
             <ScrollArea className="h-[500px] rounded-md border p-4">
                 <div className="space-y-4">
-                    {incidents.map((incident) => (
+                    {localIncidents.map((incident) => (
                         <Alert key={incident._id}>
                             <div className="flex items-start space-x-4">
                                 <div className="min-w-[150px] text-sm text-gray-500">

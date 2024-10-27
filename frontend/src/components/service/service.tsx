@@ -47,16 +47,16 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ token }) => {
     const { data: services, error: servicesError, mutate: mutateServices } = useSWR(
         token ? ['/api/services', token] : null,
         () => fetchServices(token as string),
-        { refreshInterval: 20000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
 
     const { data: incidents, error: incidentsError, mutate: mutateIncidents } = useSWR(
         token ? ['/api/incidents', token] : null,
         () => fetchIncidents(token as string),
-        { refreshInterval: 20000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
     // Local state to hold services data
-    const [localServices, setLocalServices] = useState<FetchedService[]>(services || []);
+    const [localServices, setLocalServices] = useState<FetchedService[]>([]);
     // Update local state when SWR data is fetched
     useEffect(() => {
         if (services) {
@@ -65,7 +65,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ token }) => {
     }, [services]);
     if (servicesError) return <div>Error loading services</div>;
     if (incidentsError) return <div>Error loading incidents</div>;
-    if (!services || !incidents) return <div>Loading...</div>;
+    if (!localServices || !incidents) return <div>Loading...</div>;
 
     // Handle Create/Update Service
     const handleServiceSubmit = async () => {
