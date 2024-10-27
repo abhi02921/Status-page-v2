@@ -243,7 +243,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
                                                     onClick={() => handleDeleteIncident(incident._id)}
                                                     disabled={loading}
                                                 >
-                                                    {loading ? 'Deleting...' : 'Delete'}
+                                                    {loading ? 'Delete.' : 'Delete'}
                                                 </Button>
                                             </div>
                                         )}
