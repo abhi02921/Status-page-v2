@@ -47,18 +47,20 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ token }) => {
     const { data: services, error: servicesError, mutate: mutateServices } = useSWR(
         token ? ['/api/services', token] : null,
         () => fetchServices(token as string),
-        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+        { refreshInterval: 60000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
 
     const { data: incidents, error: incidentsError, mutate: mutateIncidents } = useSWR(
         token ? ['/api/incidents', token] : null,
         () => fetchIncidents(token as string),
-        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+        { refreshInterval: 60000, revalidateOnFocus: false }
     );
     // Local state to hold services data
     const [localServices, setLocalServices] = useState<FetchedService[]>([]);
     // Update local state when SWR data is fetched
     useEffect(() => {
+        console.log(services);
+
         if (services) {
             setLocalServices(services);
         }

@@ -45,13 +45,13 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
     const { data: services, error: servicesError, mutate: mutateServices } = useSWR(
         token ? ['/api/services', token] : null,
         () => fetchServices(token as string),
-        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+        { refreshInterval: 60000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
 
     const { data: incidents, error, mutate } = useSWR(
         token ? ['/api/incidents', token] : null,
         () => fetchIncidents(token as string),
-        { refreshInterval: 5000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
+        { refreshInterval: 60000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
     const [localIncidents, setLocalIncidents] = useState<Incident[]>([]); // Local caching for incidents
     // Set local incidents when SWR fetches new data
