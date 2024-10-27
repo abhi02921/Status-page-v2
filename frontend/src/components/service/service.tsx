@@ -59,9 +59,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ token }) => {
     const [localServices, setLocalServices] = useState<FetchedService[]>([]);
     // Update local state when SWR data is fetched
     useEffect(() => {
-        console.log(services);
-
-        if (services) {
+        if (services !== undefined && services.length > 0) {
             setLocalServices(services);
         }
     }, [services]);
