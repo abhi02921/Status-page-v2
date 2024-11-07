@@ -3,7 +3,7 @@ import { Schema, model, Document } from 'mongoose';
 export interface IIncident extends Document {
   title: string;
   description: string;
-  status: 'Operational' | 'Degraded Performance' | 'Partial Outage' | 'Major Outage';
+  status: string;
   service: string; // Reference to the service
   organizationId: string; // Organization ID
   createdAt: Date;
@@ -16,8 +16,8 @@ const incidentSchema = new Schema<IIncident>(
     description: { type: String, required: true },
     status: {
       type: String,
-      enum: ['Operational', 'Degraded Performance', 'Partial Outage', 'Major Outage'],
-      default: 'Operational',
+      enum: ['New', 'Acknowledged', 'In Progress', 'On Hold', 'Escalated', 'Resolved', 'Monitoring', 'Closed', 'Reopened', 'Cancelled'],
+      default: 'New',
     },
     service: { type: String, ref: 'Service', required: true }, // ObjectId reference to Service
     organizationId: { type: String, required: true }, // Organization ID

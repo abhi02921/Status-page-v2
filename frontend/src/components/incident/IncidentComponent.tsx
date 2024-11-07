@@ -32,10 +32,16 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
     const [loading, setLoading] = useState<boolean>(false); // Track loading state for CRUD operations
 
     const statusColors: Record<string, string> = {
-        'Operational': 'bg-green-500',
-        'Degraded Performance': 'bg-yellow-500',
-        'Partial Outage': 'bg-orange-500',
-        'Major Outage': 'bg-red-500',
+        'New': 'bg-gray-500',                // When an incident is newly reported
+        'Acknowledged': 'bg-blue-500',        // When the incident is recognized but work hasn’t started
+        'In Progress': 'bg-yellow-500',       // When the incident is being actively worked on
+        'On Hold': 'bg-purple-500',           // When the incident is paused or waiting on external factors
+        'Escalated': 'bg-orange-500',         // When the incident has been escalated to a higher level
+        'Resolved': 'bg-green-500',           // When the incident is fixed but needs confirmation
+        'Monitoring': 'bg-teal-500',          // When the fix is being observed to ensure stability
+        'Closed': 'bg-gray-400',              // When the incident is fully resolved and verified
+        'Reopened': 'bg-red-500',             // When the incident is reopened after closure
+        'Cancelled': 'bg-black-500',          // When the incident is no longer valid or needed
     };
 
     const isAdmin = user?.organizationMemberships?.some((membership) =>
