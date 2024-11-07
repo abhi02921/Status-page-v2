@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from '../ui/badge';
+import { Service as FetchedService } from '@/interface/service.interface';
 import { CreateIncident, Incident } from '@/interface/incident.interface';
 import { fetchIncidents, addIncident, updateIncident, deleteIncident, fetchServices } from '@/utils/api';
 import { useUser } from '@clerk/nextjs';
@@ -48,20 +49,25 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
         { refreshInterval: 60000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
 
-    const { data: incidents, error, mutate } = useSWR(
+    const { data: incidents, error: incidentsError, mutate } = useSWR(
         token ? ['/api/incidents', token] : null,
         () => fetchIncidents(token as string),
         { refreshInterval: 60000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
+    const [localServices, setLocalServices] = useState<FetchedService[]>([]);
     const [localIncidents, setLocalIncidents] = useState<Incident[]>([]); // Local caching for incidents
     // Set local incidents when SWR fetches new data
     useEffect(() => {
         if (incidents) {
             setLocalIncidents(incidents);
         }
-    }, [incidents]);
+        if (services !== undefined && services.length > 0) {
+            setLocalServices(services);
+        }
+    }, [incidents, services]);
 
-    if (error) return <div>Failed to load incidents</div>;
+    if (servicesError) return <div>Error loading services</div>;
+    if (incidentsError) return <div>Failed to load incidents</div>;
     if (!localIncidents) return <div>Loading incidents...</div>;
 
     // Handle Create/Update Incident
@@ -175,7 +181,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
                                         <SelectValue placeholder="Select Service" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {services?.map((service) => (
+                                        {localServices.map((service) => (
                                             <SelectItem key={service._id} value={service._id}>
                                                 {service.name}
                                             </SelectItem>
@@ -221,7 +227,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
                                             <h3 className="font-semibold">{incident.title}</h3>
                                             <p className="text-sm text-gray-600">{incident.description}</p>
                                             <p className="text-sm text-gray-500 mt-1">
-                                                Service: {services?.find(s => s._id === incident.service._id)?.name}
+                                                Service: {localServices.find(s => s._id === incident.service._id)?.name}
                                             </p>
                                         </div>
                                         <Badge className={`${statusColors[incident.status]} text-white`}>
