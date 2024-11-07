@@ -1,4 +1,3 @@
-"use client";
 import React from "react";
 import { Line } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip } from "chart.js";
@@ -10,6 +9,12 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 interface IncidentGraphProps {
     incidents: Incident[];
 }
+
+// Enum for Incident statuses
+const IncidentStatus = [
+    'New', 'Acknowledged', 'In Progress', 'On Hold', 'Escalated',
+    'Resolved', 'Monitoring', 'Closed', 'Reopened', 'Cancelled'
+];
 
 // Helper function to group incidents by date and count them
 const groupIncidentsByDate = (incidents: Incident[]) => {
@@ -24,7 +29,7 @@ const groupIncidentsByDate = (incidents: Incident[]) => {
     }, {});
 };
 
-// Helper function to calculate the operational percentage
+// Helper function to calculate operational percentage
 const calculateOperationalPercentage = (incidents: Incident[]) => {
     if (incidents.length === 0) {
         // If there are no incidents, assume 100% operational
@@ -32,7 +37,14 @@ const calculateOperationalPercentage = (incidents: Incident[]) => {
     }
 
     const totalIncidents = incidents.length;
-    const operationalCount = incidents.filter(incident => incident.status === "Operational").length;
+
+    // Define the statuses that are considered operational
+    const operationalStatuses = ['Resolved', 'Monitoring', 'Closed'];
+
+    // Filter incidents by operational statuses
+    const operationalCount = incidents.filter(incident => operationalStatuses.includes(incident.status)).length;
+
+    // Calculate and return the operational percentage
     return (operationalCount / totalIncidents) * 100;
 };
 
