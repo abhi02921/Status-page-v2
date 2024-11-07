@@ -48,7 +48,7 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
         { refreshInterval: 60000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
     );
 
-    const { data: incidents, error, mutate } = useSWR(
+    const { data: incidents, error: incidentsError, mutate } = useSWR(
         token ? ['/api/incidents', token] : null,
         () => fetchIncidents(token as string),
         { refreshInterval: 60000, revalidateOnFocus: false } // Increase refresh interval and disable revalidateOnFocus
@@ -61,7 +61,8 @@ const IncidentComponent: React.FC<IncidentComponentProps> = ({ token }) => {
         }
     }, [incidents]);
 
-    if (error) return <div>Failed to load incidents</div>;
+    if (servicesError) return <div>Error loading services</div>;
+    if (incidentsError) return <div>Failed to load incidents</div>;
     if (!localIncidents) return <div>Loading incidents...</div>;
 
     // Handle Create/Update Incident

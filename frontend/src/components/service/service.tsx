@@ -57,15 +57,21 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ token }) => {
     );
     // Local state to hold services data
     const [localServices, setLocalServices] = useState<FetchedService[]>([]);
+    const [localIncidents, setLocalIncidents] = useState<Incident[]>([]);
+
     // Update local state when SWR data is fetched
     useEffect(() => {
         if (services !== undefined && services.length > 0) {
             setLocalServices(services);
         }
-    }, [services]);
+        if (incidents !== undefined && incidents.length > 0) {
+            setLocalIncidents(incidents);
+        }
+    }, [services, incidents]);
+
     if (servicesError) return <div>Error loading services</div>;
     if (incidentsError) return <div>Error loading incidents</div>;
-    if (!localServices || !incidents) return <div>Loading...</div>;
+    if (!localServices || !localIncidents) return <div>Loading...</div>;
 
     // Handle Create/Update Service
     const handleServiceSubmit = async () => {
@@ -136,7 +142,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ token }) => {
         setLoading(true); // Start loading
         try {
             // Delete all incidents linked to the service
-            const relatedIncidents = incidents.filter((incident: Incident) => incident.service._id === id);
+            const relatedIncidents = localIncidents.filter((incident: Incident) => incident.service._id === id);
             await Promise.all(relatedIncidents.map((incident: Incident) => deleteIncident(incident._id, token as string)));
 
             // Delete the service itself
@@ -256,7 +262,7 @@ const ServiceComponent: React.FC<ServiceComponentProps> = ({ token }) => {
                     </DialogHeader>
                     {selectedService && (
                         <IncidentGraph
-                            incidents={incidents.filter(
+                            incidents={localIncidents.filter(
                                 (incident) => incident.service._id === selectedService._id
                             )}
                         />
